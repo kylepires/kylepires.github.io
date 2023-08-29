@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Manipulation</title>
+    <style>
+        canvas {
+            border: 2px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Manipulation</h1>
+    <video id="cameraFeed" autoplay></video>
+    <button id="takePhoto">Take Photo</button>
+    <canvas id="photoCanvas"></canvas>
+    <p>Select a circular area and calculate average red value:</p>
+    <p>Average Red Value: <span id="averageRedValue">---</span></p>
+    
+    <script>
+        const cameraFeed = document.getElementById("cameraFeed");
+        const takePhotoButton = document.getElementById("takePhoto");
+        const photoCanvas = document.getElementById("photoCanvas");
+        const averageRedValueSpan = document.getElementById("averageRedValue");
+        
+        let isSelecting = false;
+        let selectionCenter = { x: 0, y: 0 };
+        let selectionRadius = 0;
+        let imageData = null;
+        
+        takePhotoButton.addEventListener("click", function() {
+            // Access user's camera
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    cameraFeed.srcObject = stream;
+                    takePhotoButton.disabled = false;
+                })
+                .catch(function(error) {
+                    console.error("Error accessing camera:", error);
+                });
+        });
+
+        photoCanvas.addEventListener("mousedown", function(event) {
+            if (imageData) {
+                const rect = photoCanvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                isSelecting = true;
+                selectionCenter = { x, y };
+                selectionRadius = 0;
+            }
+        });
+
+        photoCanvas.addEventListener("mousemove", function(event) {
+            if (isSelecting && imageData) {
+                const rect = photoCanvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                selectionRadius = Math.sqrt(
+                    Math.pow(x - selectionCenter.x, 2) + Math.pow(y - selectionCenter.y, 2)
+                );
+                
+                drawSelection();
+            }
+        });
+
+        photoCanvas.addEventListener("mouseup", function() {
+            if (isSelecting && imageData) {
+                isSelecting = false;
+                
+                // Calculate the average red value of selected pixels
+                calculateAverageRedValue();
+            }
+        });
+
+        function drawSelection() {
+            const context = photoCanvas.getContext("2d");
+            context.clearRect(0, 0, photoCanvas.width, photoCanvas.height);
+            
+            // Draw the captured photo
+            context.drawImage(cameraFeed, 0, 0, photoCanvas.width, photoCanvas.height);
+            
+            context.strokeStyle = "red";
+            context.beginPath();
+            context.arc(selectionCenter.x, selectionCenter.y, selectionRadius, 0, 2 * Math.PI);
+            context.stroke();
+        }
+
+        function calculateAverageRedValue() {
+            let totalRedValue = 0;
+            let pixelCount = 0;
+
+            for (let y = 0; y < photoCanvas.height; y++) {
+                for (let x = 0; x < photoCanvas.width; x++) {
+                    const dx = x - selectionCenter.x;
+                    const dy = y - selectionCenter.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance <= selectionRadius) {
+                        const redValue = imageData[(y * photoCanvas.width + x) * 4];
+                        totalRedValue += redValue;
+                        pixelCount++;
+                    }
+                }
+            }
+
+            const averageRedValue = totalRedValue / pixelCount;
+            averageRedValueSpan.textContent = averageRedValue.toFixed(2);
+        }
+        
+        cameraFeed.addEventListener("playing", function() {
+            const width = cameraFeed.videoWidth;
+            const height = cameraFeed.videoHeight;
+            photoCanvas.width = width;
+            photoCanvas.height = height;
+            
+            // Capture the current frame from video feed
+            const context = photoCanvas.getContext("2d");
+            context.drawImage(cameraFeed, 0, 0, width, height);
+            
+            // Extract pixel data from the captured frame
+            imageData = context.getImageData(0, 0, width, height).data;
+        });
+    </script>
+</body>
+</html>
