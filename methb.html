@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera App</title>
+</head>
+<body>
+    <h1>Camera App</h1>
+    
+    <div id="videoContainer">
+        <video id="video" autoplay></video>
+        <canvas id="canvas"></canvas>
+        <p>Average Red Value: <span id="averageRedValue">0</span></p>
+        <p>Shihana et al. Calculation: <span id="shihana">0</span></p>
+        <p>Bellevue Calculation: <span id="bellevue">0</span></p>
+        <button id="addToListButton">Add to List</button>
+        <ul id="valueList"></ul>
+    </div>
+
+    <script>
+        const videoContainer = document.getElementById('videoContainer');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const averageRedValueElement = document.getElementById('averageRedValue');
+        const shihanaValueElement = document.getElementById('shihana');
+        const bellevueValueElement = document.getElementById('bellevue');
+        const addToListButton = document.getElementById('addToListButton');
+        const valueList = document.getElementById('valueList');
+
+        let stream;
+
+        async function startCamera() {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+
+            video.addEventListener('play', updateCanvas);
+        }
+
+        function updateCanvas() {
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const context = canvas.getContext('2d');
+
+            setInterval(() => {
+                context.drawImage(video, 0, 0, width, height);
+
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const squareSize = 50;
+
+                context.strokeStyle = 'black';
+                context.strokeRect(centerX - squareSize / 2, centerY - squareSize / 2, squareSize, squareSize);
+
+                const imageData = context.getImageData(centerX - squareSize / 2, centerY - squareSize / 2, squareSize, squareSize).data;
+                let totalRedValue = 0;
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    totalRedValue += imageData[i];
+                }
+
+                const averageRedValue = totalRedValue / (squareSize * squareSize);
+                averageRedValueElement.textContent = averageRedValue.toFixed(2);
+
+                const shihana = (averageRedValue - 210.3)/-1.25;
+                shihanaValueElement.textContent = shihana.toFixed(2);
+
+                const bellevue = 154 - averageRedValue;
+                bellevueValueElement.textContent = bellevue.toFixed(2);
+            }, 100);
+        }
+
+        addToListButton.addEventListener('click', () => {
+            const currentAverageRedValue = parseFloat(averageRedValueElement.textContent);
+            const currentshihana = parseFloat(shihanaValueElement.textContent);
+            const currentbellevue = parseFloat(bellevueValueElement.textContent);
+
+            const listItem = document.createElement('li');
+            listItem.textContent = `Average Red Value: ${currentAverageRedValue.toFixed(2)}, Shihana et al estimation: ${currentshihana.toFixed(2)}% methemoglobin, Bellevue estimation: ${currentbellevue.toFixed(2)}% methemoglobin`;
+            valueList.appendChild(listItem);
+        });
+
+        startCamera();
+    </script>
+</body>
+</html>
